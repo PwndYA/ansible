@@ -1,0 +1,45 @@
+---
+## Ansible Playbook install AuditD Daemon on Debian Systems
+- hosts: Hosts
+  tasks:
+    - name: Check if auditd.service exists
+      stat:
+        path: /etc/systemd/system/multi-user.target.wants/auditd.service
+      register: auditd_service
+
+    - name: Check if laurel.conf exists
+      stat:
+        path: /etc/audit/plugins.d/laurel.conf
+      register: laurel
+      when: auditd_service.stat.exists
+
+    - name: Block AuditD installation
+      when: not auditd_service.stat.exists
+      block:
+        - name: Install AuditD
+          apt:
+            name: auditd
+            state: present
+
+        - name: Create /etc/audit/laurel directory
+          file:
+            path: /etc/audit/laurel
+            state: directory
+            mode: '0755'
+
+    - name: Install laurel if not exists
+      when: not laurel.stat.exists
+      block:
+        - name: Download laurel-v0.5.5-x86_64-glibc.tar.gz
+          get_url:
+            url: https://github.com/threathunters-io/laurel/releases/download/v0.5.5/laurel-v0.5.5-x86_64-glibc.tar.gz
+            dest: /tmp    
+            
+        - name: Unarchive laurel-v0.5.5-x86_64-glibc.tar.gz
+          unarchive:
+            src: /tmp/laurel-v0.5.5-x86_64-glibc.tar.gz
+            dest: /tmp
+
+        - name: Install laurel 
+          shell: install -m 755 /tmp/laurel /usr/local/sbin/laurel
+
